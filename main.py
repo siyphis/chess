@@ -113,13 +113,91 @@ def smart_bot():
     legal_moves = list(board_state.legal_moves)
     move = random.choice(legal_moves)
     board_state.push(move)
+# Piece-Square Tables (PST) from White's perspective.
+# Higher numbers mean a piece wants to go to that square.
+PST = {
+    chess.PAWN: [
+        0,  0,  0,  0,  0,  0,  0,  0,
+        50, 50, 50, 50, 50, 50, 50, 50,
+        10, 10, 20, 30, 30, 20, 10, 10,
+         5,  5, 10, 25, 25, 10,  5,  5,
+         0,  0,  0, 20, 20,  0,  0,  0,
+         5, -5,-10,  0,  0,-10, -5,  5,
+         5, 10, 10,-20,-20, 10, 10,  5,
+         0,  0,  0,  0,  0,  0,  0,  0
+    ],
+    chess.KNIGHT: [
+        -50,-40,-30,-30,-30,-30,-40,-50,
+        -40,-20,  0,  0,  0,  0,-20,-40,
+        -30,  0, 10, 15, 15, 10,  0,-30,
+        -30,  5, 15, 20, 20, 15,  5,-30,
+        -30,  0, 15, 20, 20, 15,  0,-30,
+        -30,  5, 10, 15, 15, 10,  5,-30,
+        -40,-20,  0,  5,  5,  0,-20,-40,
+        -50,-40,-30,-30,-30,-30,-40,-50,
+    ],
+    chess.BISHOP: [
+        -20,-10,-10,-10,-10,-10,-10,-20,
+        -10,  0,  0,  0,  0,  0,  0,-10,
+        -10,  0,  5, 10, 10,  5,  0,-10,
+        -10,  5,  5, 10, 10,  5,  5,-10,
+        -10,  0, 10, 10, 10, 10,  0,-10,
+        -10, 10, 10, 10, 10, 10, 10,-10,
+        -10,  5,  0,  0,  0,  0,  5,-10,
+        -20,-10,-10,-10,-10,-10,-10,-20,
+    ],
+    chess.ROOK: [
+          0,  0,  0,  0,  0,  0,  0,  0,
+          5, 10, 10, 10, 10, 10, 10,  5,
+         -5,  0,  0,  0,  0,  0,  0, -5,
+         -5,  0,  0,  0,  0,  0,  0, -5,
+         -5,  0,  0,  0,  0,  0,  0, -5,
+         -5,  0,  0,  0,  0,  0,  0, -5,
+         -5,  0,  0,  0,  0,  0,  0, -5,
+          0,  0,  0,  5,  5,  0,  0,  0
+    ],
+    chess.QUEEN: [
+        -20,-10,-10, -5, -5,-10,-10,-20,
+        -10,  0,  0,  0,  0,  0,  0,-10,
+        -10,  0,  5,  5,  5,  5,  0,-10,
+         -5,  0,  5,  5,  5,  5,  0, -5,
+          0,  0,  5,  5,  5,  5,  0, -5,
+        -10,  5,  5,  5,  5,  5,  0,-10,
+        -10,  0,  5,  0,  0,  0,  0,-10,
+        -20,-10,-10, -5, -5,-10,-10,-20
+    ],
+    chess.KING: [
+        -30,-40,-40,-50,-50,-40,-40,-30,
+        -30,-40,-40,-50,-50,-40,-40,-30,
+        -30,-40,-40,-50,-50,-40,-40,-30,
+        -30,-40,-40,-50,-50,-40,-40,-30,
+        -20,-30,-30,-40,-40,-30,-30,-20,
+        -10,-20,-20,-20,-20,-20,-20,-10,
+         20, 20,  0,  0,  0,  0, 20, 20,
+         20, 30, 10,  0,  0, 10, 30, 20
+    ]
+}
+
 def value_calc(board):
+    if board.is_game_over():
+        outcome = board.outcome()
+        if outcome.winner == chess.WHITE:
+            return 99999
+        elif outcome.winner == chess.BLACK:
+            return -99999
+        else:
+            return 0
+    if board.is_repetition(2):
+        if board.turn == chess.WHITE:
+            return -550
+        else:
+            return 550
     PIECE_VALUES = {
-        chess.PAWN: 1,
-        chess.KNIGHT: 3,
-        chess.BISHOP: 3,
-        chess.ROOK: 5,
-        chess.QUEEN: 9,
+        chess.PAWN: 100,
+        chess.KNIGHT: 320,
+        chess.BISHOP: 330,
+        chess.ROOK: 500,
+        chess.QUEEN: 900,
         chess.KING: 0
     }
 
@@ -129,13 +207,21 @@ def value_calc(board):
     for square in chess.SQUARES:
         piece = board.piece_at(square)
         if piece:
-            value = PIECE_VALUES[piece.piece_type]
+            # Base material calculation
+            val = PIECE_VALUES[piece.piece_type]
+            
+            # Positional score calculation
             if piece.color == chess.WHITE:
-                white_total += value
+                table_square = 56 - (square // 8) * 8 + (square % 8)
+                val += PST[piece.piece_type][table_square]
+                white_total += val
             else:
-                black_total += value
+                table_square = (square // 8) * 8 + (square % 8)
+                val += PST[piece.piece_type][table_square]
+                black_total += val
 
     return white_total - black_total
+
 
 def smarter_bot(board_state,depth):
 
@@ -228,9 +314,15 @@ while running:
                         sel_space.append(get_space())
                         move(sel_space[0],sel_space[1])
                         sel_space=[]
+            ai_move, score = minmax(board_state, depth=4, maximizing_player=False, initial_depth=4)
+            board_state.push(ai_move)
+            counter=0
+            draw_board()
+            draw_peices()
         else:
             #board_state.push(smarter_bot(board_state,1))
             ai_move, score = minmax(board_state, depth=4, maximizing_player=True, initial_depth=4)           
             board_state.push(ai_move)
+            counter=0
             draw_board()
             draw_peices()
