@@ -94,7 +94,6 @@ def get_moves(space):
         for move in board_state.legal_moves
         if move.from_square == origin
     ]
-    print(moves_from_origin)
     draw_board()
     draw_peices()
 
@@ -102,7 +101,6 @@ def get_moves(space):
 def draw_moves(space):
     letter = ["a", "b", "c", "d", "e", "f", "g", "h"]
     for move in get_moves(space):
-        print(str(letter.index(move[0]))+move[1])
         pygame.draw.circle(screen, "honeydew3",((letter.index(move[0])* 50) +25 ,  ((int(move[1])-1)* 50)+25,),20)
 
 def smart_bot():
@@ -151,7 +149,7 @@ PST = {
          -5,  0,  0,  0,  0,  0,  0, -5,
          -5,  0,  0,  0,  0,  0,  0, -5,
          -5,  0,  0,  0,  0,  0,  0, -5,
-          0,  0,  0,  5,  5,  0,  0,  0
+          -5,  0,  0,  5,  5,  0,  0,  -5
     ],
     chess.QUEEN: [
         -20,-10,-10, -5, -5,-10,-10,-20,
@@ -176,14 +174,15 @@ PST = {
 }
 
 def value_calc(board):
-    if board.is_game_over():
-        outcome = board.outcome()
-        if outcome.winner == chess.WHITE:
-            return 99999
-        elif outcome.winner == chess.BLACK:
-            return -99999
-        else:
-            return 0
+    if not board.legal_moves:
+        if board.is_check():
+            outcome = board.outcome()
+            if outcome.winner == chess.WHITE:
+                return 99999
+            elif outcome.winner == chess.BLACK:
+                return -99999
+            else:
+                return 0
     if board.is_repetition(2):
         if board.turn == chess.WHITE:
             return -550
@@ -265,8 +264,6 @@ def move_order(board_state):
 
 def minmax(board_state, depth, maximizing_player, alpha=-9999, beta=9999, initial_depth=3):
     global counter
-    moves = move_order(board_state)
-    print(counter)
     if depth == 0 or board_state.is_game_over():
         return value_calc(board_state)
 
@@ -279,7 +276,7 @@ def minmax(board_state, depth, maximizing_player, alpha=-9999, beta=9999, initia
             score = minmax(board_state, depth - 1, False, alpha, beta, initial_depth)
             board_state.pop()
             counter+=1
-            
+
             if score > max_eval:
                 max_eval = score
                 best_move = move_obj
@@ -316,7 +313,6 @@ def minmax(board_state, depth, maximizing_player, alpha=-9999, beta=9999, initia
         return min_eval
 
 
-
 draw_board()
 draw_peices()
 pygame.display.flip()
@@ -342,17 +338,19 @@ while running:
                             sel_space=[sel_space[1]]
                             draw_moves(sel_space[0])
                             pygame.display.flip()
-            #ai_move, score = minmax(board_state, depth=4, maximizing_player=False, initial_depth=4)
-            #board_state.push(ai_move)
-            #counter=0
+            if not board_state.is_game_over():
+                ai_move, score = minmax(board_state, depth=5, maximizing_player=False, initial_depth=5)
+                board_state.push(ai_move)
+                counter=0
         else:
-            #board_state.push(smarter_bot(board_state,1))
-            start_time = pygame.time.get_ticks()
-            ai_move, score = minmax(board_state, depth=6, maximizing_player=True, initial_depth=6)           
-            time_taken = pygame.time.get_ticks() - start_time
-            print(f"AI move: {ai_move}, Nps: {counter/(time_taken/100)}, Time taken: {time_taken} ms")
-            board_state.push(ai_move)
-            counter=0
-            draw_board()
-            draw_peices()
-            pygame.display.flip()
+            if not board_state.is_game_over():
+                #board_state.push(smarter_bot(board_state,1))
+                start_time = pygame.time.get_ticks()
+                ai_move, score = minmax(board_state, depth=5, maximizing_player=True, initial_depth=5)
+                time_taken = pygame.time.get_ticks() - start_time
+                print(f"AI move: {ai_move}, Nps: {counter/(time_taken/1000)}, Time taken: {time_taken} ms")
+                board_state.push(ai_move)
+                counter=0
+                draw_board()
+                draw_peices()
+                pygame.display.flip()
