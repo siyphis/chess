@@ -4,13 +4,13 @@ import random
 import pygame
 import chess
 from im_so_lost import Whatsitman, board_to_tensor
-ai = True
+ai = False
 pygame.init()
 screen = pygame.display.set_mode((400,400))
 pygame.display.set_caption("Chess")
 clock = pygame.time.Clock()
 my_font = pygame.font.SysFont('Comic Sans MS', 40)
-running = True
+running = False
 board=[]
 board_rects=[]
 sel_space=[]
@@ -298,7 +298,7 @@ def minmax(board_state, depth, maximizing_player, alpha=-9999, beta=9999, initia
             return best_move, min_eval
         return min_eval
 
-
+running = True
 draw_board()
 draw_peices()
 pygame.display.flip()
@@ -325,6 +325,7 @@ while running:
                             draw_moves(sel_space[0])
                             pygame.display.flip()
             if not board_state.is_game_over() and ai == True:
+                print("Black")
                 ai_move, score = minmax(board_state, depth=5, maximizing_player=False, initial_depth=5)
                 board_state.push(ai_move)
                 counter=0
