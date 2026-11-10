@@ -1,7 +1,10 @@
+import torch
+import torch.nn as nn
 import random
 import pygame
 import chess
-ai = False
+from im_so_lost import Whatsitman, board_to_tensor
+ai = True
 pygame.init()
 screen = pygame.display.set_mode((400,400))
 pygame.display.set_caption("Chess")
@@ -14,6 +17,10 @@ sel_space=[]
 board_state = chess.Board()
 black_total=0
 white_total=0
+
+model = Whatsitman()
+model.load_state_dict(torch.load("idiot.pth",weights_only=True))
+model.eval()
 
 def load_images():
     global Black_images,White_images,Black_pieces,White_pieces
@@ -232,10 +239,19 @@ def move_order(board_state):
 
     return moves
 
+def predict(board_state):
+
+    tensor = board_to_tensor(board_state)
+    with torch.inference_mode():
+        score = model(tensor.unsqueeze(0))
+        #print(f"Predicted score: {round(score.item(), 2)}vs actual score: {max(-1000, min(1000, value_calc(board_state))) / 1000.0}")
+        return score.item()
+
 def minmax(board_state, depth, maximizing_player, alpha=-9999, beta=9999, initial_depth=3):
     global counter
+    counter+=1
     if depth == 0 or board_state.is_game_over():
-        return value_calc(board_state)
+        return predict(board_state)
 
     best_move = None
 
@@ -245,7 +261,7 @@ def minmax(board_state, depth, maximizing_player, alpha=-9999, beta=9999, initia
             board_state.push(move_obj)
             score = minmax(board_state, depth - 1, False, alpha, beta, initial_depth)
             board_state.pop()
-            counter+=1
+            
 
             if score > max_eval:
                 max_eval = score
@@ -266,7 +282,7 @@ def minmax(board_state, depth, maximizing_player, alpha=-9999, beta=9999, initia
             board_state.push(move_obj)
             score = minmax(board_state, depth - 1, True, alpha, beta, initial_depth)
             board_state.pop()
-            counter+=1
+            
 
             if score < min_eval:
                 min_eval = score
@@ -318,6 +334,7 @@ while running:
                 ai_move, score = minmax(board_state, depth=5, maximizing_player=True, initial_depth=5)
                 time_taken = pygame.time.get_ticks() - start_time
                 print(f"AI move: {ai_move}, Nps: {counter/(time_taken/1000)}, Time taken: {time_taken} ms")
+                predict(board_state)
                 board_state.push(ai_move)
                 counter=0
                 draw_board()
