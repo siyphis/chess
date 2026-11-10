@@ -1,7 +1,7 @@
 import random
 import pygame
 import chess
-
+ai = False
 pygame.init()
 screen = pygame.display.set_mode((400,400))
 pygame.display.set_caption("Chess")
@@ -30,7 +30,8 @@ load_images()
 
 class board_space():
     def __init__(self,x,y,color):
-        self.x = x
+        numbers = [0,1,2,3,4,5,6,7]
+        self.x = numbers[-x-1]
         self.y = y
         self .color = color
 
@@ -59,7 +60,7 @@ def draw_peices():
 
 def get_space():
     for item in board_rects:
-        letter=["a","b","c","d","e","f","g","h"]
+        letter=["h","g","f","e","d","c","b","a"]
         if item.collidepoint(pygame.mouse.get_pos()):
             return letter[int(item.x / 50)]+str(int(item.y / 50+1))
 
@@ -80,9 +81,7 @@ def move(space_1,space_2):
         return True
     else:
         return
-    draw_board()
-    draw_peices()
-    pygame.display.flip()
+
 
 
 def get_moves(space):
@@ -96,20 +95,12 @@ def get_moves(space):
     ]
     draw_board()
     draw_peices()
-
     return moves_from_origin
 def draw_moves(space):
-    letter = ["a", "b", "c", "d", "e", "f", "g", "h"]
+    letter = ["h", "g", "f", "e", "d", "c", "b", "a"]
     for move in get_moves(space):
         pygame.draw.circle(screen, "honeydew3",((letter.index(move[0])* 50) +25 ,  ((int(move[1])-1)* 50)+25,),20)
 
-def smart_bot():
-    global board_state
-    legal_moves = list(board_state.legal_moves)
-    move = random.choice(legal_moves)
-    board_state.push(move)
-# Piece-Square Tables (PST) from White's perspective.
-# Higher numbers mean a piece wants to go to that square.
 PST = {
     chess.PAWN: [
         0,  0,  0,  0,  0,  0,  0,  0,
@@ -218,29 +209,8 @@ def value_calc(board):
 
     return white_total - black_total
 
-
-def smarter_bot(board_state,depth):
-
-    best_score = -9999
-    best_move = None
-    for move in board_state.legal_moves:
-        score2 = 9999
-        temp = board_state.copy()
-        temp.push(move)
-        score = value_calc(temp)
-
-        for move2 in temp.legal_moves:
-            temp2 = temp.copy()
-            temp2.push(move2)
-            if value_calc(temp2) < score2:
-                score2 = value_calc(temp2)
-
-        if score2 > best_score:
-            best_score = score2
-            best_move = move
-    return best_move
-
 counter=0
+
 def victim_value(board_state, move):
     if board_state.is_capture(move):
         captured_piece = board_state.piece_at(move.to_square)
@@ -338,13 +308,12 @@ while running:
                             sel_space=[sel_space[1]]
                             draw_moves(sel_space[0])
                             pygame.display.flip()
-            if not board_state.is_game_over():
+            if not board_state.is_game_over() and ai == True:
                 ai_move, score = minmax(board_state, depth=5, maximizing_player=False, initial_depth=5)
                 board_state.push(ai_move)
                 counter=0
         else:
             if not board_state.is_game_over():
-                #board_state.push(smarter_bot(board_state,1))
                 start_time = pygame.time.get_ticks()
                 ai_move, score = minmax(board_state, depth=5, maximizing_player=True, initial_depth=5)
                 time_taken = pygame.time.get_ticks() - start_time
