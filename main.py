@@ -1,10 +1,14 @@
+import math
+
 import torch
 import torch.nn as nn
 import random
 import pygame
 import chess
-from im_so_lost import Whatsitman, board_to_tensor
+import chess.engine
+from torching import board_to_tensor, Whatsitman
 ai = False
+
 pygame.init()
 screen = pygame.display.set_mode((400,400))
 pygame.display.set_caption("Chess")
@@ -19,7 +23,7 @@ black_total=0
 white_total=0
 
 model = Whatsitman()
-model.load_state_dict(torch.load("idiot.pth",weights_only=True))
+model.load_state_dict(torch.load("fakefish.pth",weights_only=True))
 model.eval()
 
 def load_images():
@@ -251,7 +255,7 @@ def minmax(board_state, depth, maximizing_player, alpha=-9999, beta=9999, initia
     global counter
     counter+=1
     if depth == 0 or board_state.is_game_over():
-        return predict(board_state)
+        return value_calc(board_state)
 
     best_move = None
 
@@ -335,8 +339,9 @@ while running:
                 ai_move, score = minmax(board_state, depth=5, maximizing_player=True, initial_depth=5)
                 time_taken = pygame.time.get_ticks() - start_time
                 print(f"AI move: {ai_move}, Nps: {counter/(time_taken/1000)}, Time taken: {time_taken} ms")
-                predict(board_state)
                 board_state.push(ai_move)
+                with chess.engine.SimpleEngine.popen_uci("stockfish/stockfish") as engine:
+                    result = engine.analyse(board_state, chess.engine.Limit(time=0.1))
                 counter=0
                 draw_board()
                 draw_peices()

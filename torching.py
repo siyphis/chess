@@ -1,11 +1,16 @@
+import math
 import torch
 import torch.optim as optim
 import torch.nn as nn
 import numpy as np
+import chess.engine
+from chess.engine import Cp,Mate,MateGiven
 import chess
 import random
 
+
 def value_calc(board):
+
     PST = {
     chess.PAWN: [
         0,  0,  0,  0,  0,  0,  0,  0,
@@ -66,8 +71,8 @@ def value_calc(board):
         -10,-20,-20,-20,-20,-20,-20,-10,
          20, 20,  0,  0,  0,  0, 20, 20,
          20, 30, 10,  0,  0, 10, 30, 20
-    ]
-}
+        ]
+    }
     if not board.legal_moves:
         if board.is_check():
             outcome = board.outcome()
@@ -126,18 +131,25 @@ def make_data(num):
     board_states = []
     evals = []
     board = chess.Board()
-    while len(board_states) < num:
-        if board.is_game_over():
-            board.reset()
-        moves = list(board.legal_moves)
-        if not moves:
-            board.reset()
-            continue
-        board.push(random.choice(moves))
-        board_states.append(board_to_tensor(board))
-        normalized_eval = max(-1000, min(1000, value_calc(board))) / 1000.0
-        evals.append(normalized_eval)
-    return torch.tensor(np.array(board_states), dtype=torch.float32), torch.tensor(np.array(evals), dtype=torch.float32).unsqueeze(1)
+
+    with chess.engine.SimpleEngine.popen_uci("stockfish/stockfish") as engine:
+
+        while len(board_states) < num:
+            if board.is_game_over():
+                board.reset()
+            moves = list(board.legal_moves)
+            if not moves:
+                board.reset()
+                continue
+            board.push(random.choice(moves))
+            board_states.append(board_to_tensor(board))
+            score = engine.analyse(board,chess.engine.Limit(depth=8))
+            info = chess.engine.PovScore.white(score['score'])
+            
+            eval = info.score(mate_score=100000)
+            eval = math.tanh(eval / 400)
+            evals.append(eval)
+        return torch.tensor(np.array(board_states), dtype=torch.float32), torch.tensor(np.array(evals), dtype=torch.float32).unsqueeze(1)
 
 class Whatsitman(nn.Module):
     def __init__(self):
@@ -145,6 +157,8 @@ class Whatsitman(nn.Module):
         self.flatten = nn.Flatten()
         self.hidden = nn.Linear(12 * 8 * 8, 64)
         self.output = nn.Linear(64, 1)
+
+
     def forward(self, x):
         x = self.flatten(x)
         x = torch.relu(self.hidden(x))
@@ -153,8 +167,11 @@ class Whatsitman(nn.Module):
 
 
 def train_model(model,epochs, batch_size, learning_rate):
-    model = model 
-    model.load_state_dict(torch.load("idiot.pth",weights_only=True))
+    model = model
+    try: 
+        model.load_state_dict(torch.load("fakefish.pth",weights_only=True))
+    except:
+        print("no modely")
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     criterion = nn.MSELoss()
 
@@ -163,16 +180,19 @@ def train_model(model,epochs, batch_size, learning_rate):
         print("Generating training data")
         data,targets = make_data(batch_size)
         print("Training data generated")
-        optimizer.zero_grad()
-        predictions = model(data)
-        loss = criterion(predictions, targets)
-        loss.backward()
-        optimizer.step()
-        print(f"Epoch {epoch + 1}/{epochs}, Loss: {loss.item()}")
-    torch.save(model.state_dict(), "idiot.pth")
-    print("Model saved as idiot.pth")
-training = False
-while training:
-    train_model(Whatsitman(), epochs=100, batch_size=5000, learning_rate=0.0005)
-    if input("Do you want to continue training? (y/n): ").lower() != 'y':
-        break
+
+        for i in range(100):
+            optimizer.zero_grad()
+            predictions = model(data)
+            loss = criterion(predictions, targets)
+            loss.backward()
+            optimizer.step()
+            print(f"Epoch {epoch + 1}/{epochs}, Loss: {loss.item()}")
+    torch.save(model.state_dict(), "fakefish.pth")
+    print("Model saved as fakefish.pth")
+def train(epochs,batch,lr):
+    training = True
+    while training:
+        train_model(Whatsitman(), epochs=epochs, batch_size=batch, learning_rate=lr)
+        if input("Do you want to continue training? (y/n): ").lower() != 'y':
+            break
